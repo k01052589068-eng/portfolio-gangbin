@@ -399,4 +399,61 @@ DATA.assets.forEach(a=>{
 const KEY='portfolio_targets_v1';
 const curW={}; DATA.assets.forEach(a=>
   curW[a]=DATA.total?DATA.current[a]/DATA.total*100:0);
-l
+let targets=loadTargets();
+function loadTargets(){
+  try{const s=JSON.parse(localStorage.getItem(KEY));
+    if(s&&DATA.assets.every(a=>typeof s[a]==='number'))return s;}catch(e){}
+  const t={};DATA.assets.forEach(a=>t[a]=+curW[a].toFixed(1));return t;
+}
+function saveTargets(){try{localStorage.setItem(KEY,JSON.stringify(targets));}catch(e){}}
+function renderRB(){
+  const body=document.getElementById('rbBody');body.innerHTML='';
+  let sum=0;DATA.assets.forEach(a=>sum+=(+targets[a]||0));
+  const sEl=document.getElementById('rbSum');
+  sEl.textContent=sum.toFixed(1)+'%';
+  sEl.className='sum '+(Math.abs(sum-100)<0.5?'ok':'bad');
+  DATA.assets.forEach(a=>{
+    const tgt=+targets[a]||0;
+    const diffAmt=(tgt-curW[a])/100*DATA.total;
+    let act='유지',cls='keep';
+    if(diffAmt>DATA.total*0.001){act='+'+fmtKRshort(diffAmt)+' 매수';cls='buy';}
+    else if(diffAmt<-DATA.total*0.001){act=fmtKRshort(diffAmt)+' 매도';cls='sell';}
+    const row=document.createElement('div');row.className='rb-row';
+    row.innerHTML=
+      `<div class="rb-asset"><span class="dot" style="background:${C(a)}"></span>${a}</div>`+
+      `<div class="rb-cur">${curW[a].toFixed(1)}%</div>`+
+      `<div class="rb-input-wrap"><input class="rb-input" type="number" `+
+        `inputmode="decimal" step="0.1" min="0" data-a="${a}" value="${tgt}"></div>`+
+      `<div class="rb-act ${cls}">${act}</div>`;
+    body.appendChild(row);
+  });
+  body.querySelectorAll('.rb-input').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      targets[e.target.dataset.a]=parseFloat(e.target.value)||0;
+      saveTargets();
+      let s=0;DATA.assets.forEach(a=>s+=(+targets[a]||0));
+      const se=document.getElementById('rbSum');
+      se.textContent=s.toFixed(1)+'%';
+      se.className='sum '+(Math.abs(s-100)<0.5?'ok':'bad');
+      const a=e.target.dataset.a;
+      const tgt=+targets[a]||0;
+      const diffAmt=(tgt-curW[a])/100*DATA.total;
+      const actEl=e.target.closest('.rb-row').querySelector('.rb-act');
+      if(diffAmt>DATA.total*0.001){actEl.textContent='+'+fmtKRshort(diffAmt)+' 매수';actEl.className='rb-act buy';}
+      else if(diffAmt<-DATA.total*0.001){actEl.textContent=fmtKRshort(diffAmt)+' 매도';actEl.className='rb-act sell';}
+      else{actEl.textContent='유지';actEl.className='rb-act keep';}
+    });
+  });
+}
+document.getElementById('rbReset').addEventListener('click',()=>{
+  DATA.assets.forEach(a=>targets[a]=+curW[a].toFixed(1));
+  saveTargets();renderRB();
+});
+renderRB();
+
+/* ---------- 푸터 ---------- */
+document.getElementById('footer').innerHTML=
+  '마지막 갱신 '+DATA.generated_at+'<br>데이터 출처: 자산 포트폴리오.xlsx';
+</script>
+</body>
+</html>
