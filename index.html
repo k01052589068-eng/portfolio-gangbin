@@ -128,6 +128,14 @@
     font-size:22px;font-weight:600;font-family:inherit;color:var(--text);cursor:pointer;}
   .keypad button:active{background:#E1E4E8;}
   .keypad button.blank{background:none;cursor:default;}
+
+  /* Privacy 토글 */
+  .hd-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .privacy-btn{flex:none;border:none;border-radius:999px;padding:7px 12px;
+    font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+    background:var(--chip);color:var(--text2);white-space:nowrap;}
+  .privacy-btn.on{background:var(--blue);color:#fff;}
+  .privacy-btn:active{opacity:.85;}
 </style>
 </head>
 <body>
@@ -143,8 +151,13 @@
 <div class="app">
 
   <div class="card header-card">
-    <div class="app-title">내 자산 포트폴리오</div>
-    <div class="base-month" id="baseMonth"></div>
+    <div class="hd-row">
+      <div>
+        <div class="app-title">내 자산 포트폴리오</div>
+        <div class="base-month" id="baseMonth"></div>
+      </div>
+      <button class="privacy-btn" id="privacyToggle">금액 가리기</button>
+    </div>
     <div class="total-amount" id="totalAmount"></div>
     <div id="momBadge" class="mom"></div>
     <div class="header-foot">
@@ -229,6 +242,15 @@ const PIN='0415';
   render();
 })();
 
+/* ---------- Privacy 모드 ---------- */
+const PMASK='•••••';
+let privacyMode=false;
+try{privacyMode=localStorage.getItem('pf_privacy')==='1';}catch(e){}
+function setMoney(id,text){
+  const el=document.getElementById(id);
+  el.textContent=text;el.dataset.full=text;el.classList.add('js-money');
+}
+
 /* ---------- 포맷터 ---------- */
 function fmtKR(v){
   v=Math.round(v||0); const neg=v<0; v=Math.abs(v);
@@ -251,19 +273,18 @@ const C = a => DATA.colors[a] || '#ADB5BD';
 
 /* ---------- 헤더 ---------- */
 document.getElementById('baseMonth').textContent = DATA.latest_label + ' 기준';
-document.getElementById('totalAmount').textContent = fmtKR(DATA.total);
 document.getElementById('donutMonth').textContent = DATA.latest_label;
+setMoney('totalAmount', fmtKR(DATA.total));
 const up = DATA.mom_change >= 0;
+const momAmt = fmtKRshort(Math.abs(DATA.mom_change));
 const badge = document.getElementById('momBadge');
 badge.className = 'mom' + (up?'':' neg');
-badge.innerHTML = (up?'▲':'▼') + ' ' + fmtKRshort(Math.abs(DATA.mom_change)) +
+badge.innerHTML = (up?'▲':'▼') + ' <span class="js-money" data-full="'+momAmt+'">'+momAmt+'</span>' +
   ' <span class="sub">(' + (up?'+':'') + DATA.mom_pct.toFixed(1) + '%)</span>';
-document.getElementById('miniMom').textContent =
-  (up?'+':'-') + fmtKRshort(Math.abs(DATA.mom_change));
+setMoney('miniMom', (up?'+':'-') + momAmt);
 document.getElementById('miniMom').style.color = up?'var(--up)':'var(--down)';
 const pUp = DATA.profit_12m >= 0;
-document.getElementById('miniProfit').textContent =
-  (pUp?'+':'-') + fmtKRshort(Math.abs(DATA.profit_12m));
+setMoney('miniProfit', (pUp?'+':'-') + fmtKRshort(Math.abs(DATA.profit_12m)));
 document.getElementById('miniProfit').style.color = pUp?'var(--up)':'var(--down)';
 
 /* ---------- 플러그인 ---------- */
@@ -281,10 +302,15 @@ const centerText = {
     x.save();x.textAlign='center';
     x.fillStyle='#8B95A1';x.font='600 12px Pretendard';
     x.fillText('총 자산', cx, cy-12);
-    x.fillStyle='#191F28';x.font='800 18px Pretendard';
-    x.fillText(fmtKR(DATA.total).replace('원',''), cx, cy+11);
-    x.fillStyle='#8B95A1';x.font='600 11px Pretendard';
-    x.fillText('원', cx, cy+27);
+    if(privacyMode){
+      x.fillStyle='#191F28';x.font='800 20px Pretendard';
+      x.fillText(PMASK, cx, cy+13);
+    }else{
+      x.fillStyle='#191F28';x.font='800 18px Pretendard';
+      x.fillText(fmtKR(DATA.total).replace('원',''), cx, cy+11);
+      x.fillStyle='#8B95A1';x.font='600 11px Pretendard';
+      x.fillText('원', cx, cy+27);
+    }
     x.restore();
   }
 };
@@ -293,7 +319,7 @@ Chart.defaults.color='#8B95A1';
 
 /* ---------- 1. 도넛 ---------- */
 const donutAssets = DATA.assets.filter(a => DATA.current[a] > 0);
-new Chart(document.getElementById('donut'),{
+const donutChart = new Chart(document.getElementById('donut'),{
   type:'doughnut',
   data:{labels:donutAssets,
     datasets:[{data:donutAssets.map(a=>DATA.current[a]),
@@ -302,7 +328,7 @@ new Chart(document.getElementById('donut'),{
   options:{responsive:true,maintainAspectRatio:false,cutout:'66%',
     layout:{padding:14},
     plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>' '+c.label+'  '+fmtKR(c.parsed)+
+      tooltip:{callbacks:{label:c=>' '+c.label+'  '+(privacyMode?PMASK:fmtKR(c.parsed))+
         '  ('+(c.parsed/DATA.total*100).toFixed(1)+'%)'}}}},
   plugins:[shadowPlugin,centerText]
 });
@@ -314,12 +340,12 @@ DATA.assets.slice().sort((a,b)=>DATA.current[b]-DATA.current[a]).forEach(a=>{
   d.innerHTML=`<span class="dot" style="background:${C(a)}"></span>`+
     `<span class="lg-name">${a}</span>`+
     `<span class="lg-val"><div class="lg-pct">${pct.toFixed(1)}%</div>`+
-    `<div class="lg-amt">${fmtKRshort(DATA.current[a])}</div></span>`;
+    `<div class="lg-amt js-money" data-full="${fmtKRshort(DATA.current[a])}">${fmtKRshort(DATA.current[a])}</div></span>`;
   lg.appendChild(d);
 });
 
 /* ---------- 2. 누적 막대 ---------- */
-new Chart(document.getElementById('barChart'),{
+const barChart = new Chart(document.getElementById('barChart'),{
   type:'bar',
   data:{labels:DATA.months.map(mLabel),
     datasets:DATA.assets.map(a=>({label:a,data:DATA.valuation_series[a],
@@ -332,12 +358,12 @@ new Chart(document.getElementById('barChart'),{
         ticks:{font:{size:11}}},
       y:{stacked:true,border:{display:false},
         grid:{color:'#F2F4F6'},
-        ticks:{font:{size:11},callback:v=>(v/1e8).toFixed(1)+'억'}}},
+        ticks:{font:{size:11},callback:v=>privacyMode?'':(v/1e8).toFixed(1)+'억'}}},
     plugins:{legend:{display:false},
       tooltip:{callbacks:{
         title:i=>i[0].label,
-        label:c=>c.parsed.y>0?' '+c.dataset.label+' '+fmtKRshort(c.parsed.y):null,
-        footer:i=>'합계 '+fmtKR(i.reduce((s,x)=>s+x.parsed.y,0))}}}}
+        label:c=>c.parsed.y>0?' '+c.dataset.label+(privacyMode?'':' '+fmtKRshort(c.parsed.y)):null,
+        footer:i=>privacyMode?'':'합계 '+fmtKR(i.reduce((s,x)=>s+x.parsed.y,0))}}}}
 });
 
 /* ---------- 3. 수익률 라인 ---------- */
@@ -416,8 +442,8 @@ function renderRB(){
     const tgt=+targets[a]||0;
     const diffAmt=(tgt-curW[a])/100*DATA.total;
     let act='유지',cls='keep';
-    if(diffAmt>DATA.total*0.001){act='+'+fmtKRshort(diffAmt)+' 매수';cls='buy';}
-    else if(diffAmt<-DATA.total*0.001){act=fmtKRshort(diffAmt)+' 매도';cls='sell';}
+    if(diffAmt>DATA.total*0.001){act=(privacyMode?'':'+'+fmtKRshort(diffAmt)+' ')+'매수';cls='buy';}
+    else if(diffAmt<-DATA.total*0.001){act=(privacyMode?'':fmtKRshort(diffAmt)+' ')+'매도';cls='sell';}
     const row=document.createElement('div');row.className='rb-row';
     row.innerHTML=
       `<div class="rb-asset"><span class="dot" style="background:${C(a)}"></span>${a}</div>`+
@@ -439,8 +465,8 @@ function renderRB(){
       const tgt=+targets[a]||0;
       const diffAmt=(tgt-curW[a])/100*DATA.total;
       const actEl=e.target.closest('.rb-row').querySelector('.rb-act');
-      if(diffAmt>DATA.total*0.001){actEl.textContent='+'+fmtKRshort(diffAmt)+' 매수';actEl.className='rb-act buy';}
-      else if(diffAmt<-DATA.total*0.001){actEl.textContent=fmtKRshort(diffAmt)+' 매도';actEl.className='rb-act sell';}
+      if(diffAmt>DATA.total*0.001){actEl.textContent=(privacyMode?'':'+'+fmtKRshort(diffAmt)+' ')+'매수';actEl.className='rb-act buy';}
+      else if(diffAmt<-DATA.total*0.001){actEl.textContent=(privacyMode?'':fmtKRshort(diffAmt)+' ')+'매도';actEl.className='rb-act sell';}
       else{actEl.textContent='유지';actEl.className='rb-act keep';}
     });
   });
@@ -449,7 +475,22 @@ document.getElementById('rbReset').addEventListener('click',()=>{
   DATA.assets.forEach(a=>targets[a]=+curW[a].toFixed(1));
   saveTargets();renderRB();
 });
-renderRB();
+/* ---------- Privacy 토글 ---------- */
+function applyPrivacy(){
+  document.querySelectorAll('.js-money').forEach(el=>{
+    el.textContent=privacyMode?PMASK:el.dataset.full;
+  });
+  const btn=document.getElementById('privacyToggle');
+  btn.textContent=privacyMode?'금액 표시':'금액 가리기';
+  btn.classList.toggle('on',privacyMode);
+  donutChart.update();barChart.update();renderRB();
+}
+document.getElementById('privacyToggle').addEventListener('click',()=>{
+  privacyMode=!privacyMode;
+  try{localStorage.setItem('pf_privacy',privacyMode?'1':'0');}catch(e){}
+  applyPrivacy();
+});
+applyPrivacy();
 
 /* ---------- 푸터 ---------- */
 document.getElementById('footer').innerHTML=
