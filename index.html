@@ -458,7 +458,21 @@ function poolTotal(){
 }
 function rbResetTargets(){
   const pt=poolTotal();rbTgt={};
-  REBAL_ASSETS.forEach(a=>rbTgt[a]=(rbSel[a]&&pt)?+(DATA.current[a]/pt*100).toFixed(1):0);
+  REBAL_ASSETS.forEach(a=>rbTgt[a]=(rbSel[a]&&pt)?DATA.current[a]/pt*100:0);
+  normalizeTargets();
+}
+function normalizeTargets(){
+  const sel=REBAL_ASSETS.filter(a=>rbSel[a]);
+  if(!sel.length) return;
+  let sum=0;sel.forEach(a=>sum+=(+rbTgt[a]||0));
+  const raw={};
+  if(sum>0){sel.forEach(a=>raw[a]=(+rbTgt[a]||0)*100/sum);}
+  else{const pt=poolTotal();sel.forEach(a=>raw[a]=pt?DATA.current[a]/pt*100:100/sel.length);}
+  let acc=0;
+  sel.forEach((a,i)=>{
+    if(i<sel.length-1){rbTgt[a]=+raw[a].toFixed(1);acc+=rbTgt[a];}
+    else{rbTgt[a]=+(100-acc).toFixed(1);}
+  });
 }
 if(!rbTgt) rbResetTargets();
 function paintSum(){
@@ -504,7 +518,8 @@ function renderRB(){
   });
   body.querySelectorAll('.rb-chk').forEach(c=>{
     c.addEventListener('change',e=>{
-      rbSel[e.target.dataset.a]=e.target.checked;saveRb();renderRB();
+      rbSel[e.target.dataset.a]=e.target.checked;
+      normalizeTargets();saveRb();renderRB();
     });
   });
   body.querySelectorAll('.rb-input').forEach(inp=>{
