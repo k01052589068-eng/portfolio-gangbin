@@ -519,7 +519,7 @@ function renderRB(){
   body.querySelectorAll('.rb-chk').forEach(c=>{
     c.addEventListener('change',e=>{
       rbSel[e.target.dataset.a]=e.target.checked;
-      normalizeTargets();saveRb();renderRB();
+      rbResetTargets();saveRb();renderRB();
     });
   });
   body.querySelectorAll('.rb-input').forEach(inp=>{
