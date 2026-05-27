@@ -948,6 +948,8 @@ document.getElementById('privacyToggle').addEventListener('click',()=>{
 
 /* ---------- 전체 갱신 ---------- */
 function rebuildAll(){
+  // 열려있던 모달 먼저 닫기
+  if(document.getElementById('dm').classList.contains('on')) closeDetail();
   renderHeader();
   renderDonut();
   renderBar();
@@ -955,11 +957,15 @@ function rebuildAll(){
   renderLine();
   renderBm();
   renderArea();
-  rbResetTargets();  // 선택 월 변경 시 리밸런싱 목표도 새 자산비중으로 리셋
+  rbResetTargets();
   renderRB();
-  applyPrivacy();
-  // 열려있던 모달은 닫음 (자산 달라질 수 있으니)
-  if(document.getElementById('dm').classList.contains('on')) closeDetail();
+  // Privacy 모드 적용 (차트 update는 생략 — 차트가 막 생성됐으므로 불필요)
+  document.querySelectorAll('.js-money').forEach(el=>{
+    el.textContent=privacyMode?PMASK:el.dataset.full;
+  });
+  const btn=document.getElementById('privacyToggle');
+  btn.textContent=privacyMode?'금액 표시':'금액 가리기';
+  btn.classList.toggle('on',privacyMode);
 }
 rebuildAll();
 
