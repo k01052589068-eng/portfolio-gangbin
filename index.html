@@ -685,12 +685,9 @@ function openDetail(a){
   const momDiff = cur - momV;
   const pct = DATA.total ? cur/DATA.total*100 : 0;
   const isInv = INVEST_SET.has(a);
-  let yieldPct;
-  if(isInv){
-    yieldPct = first>0 ? profSum/first*100 : 0;
-  }else{
-    yieldPct = first>0 ? (cur-first)/first*100 : 0;
-  }
+  // 12개월 수익률 = 12개월 수익금 / 12개월 평가금의 평균 × 100
+  const avgV = vs.reduce((s,v)=>s+v,0) / vs.length;
+  const yieldPct = avgV>0 ? profSum/avgV*100 : 0;
   document.getElementById('dmDot').style.background = C(a);
   document.getElementById('dmName').textContent = a;
   setMoney('dmAmount', fmtKR(cur));
